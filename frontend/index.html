@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flowtrace</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+.log-reply{display:flex;gap:0;border-top:1px solid var(--border);padding:12px 16px;gap:10px;align-items:center}
+.log-reply-inp{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Space Grotesk',sans-serif;outline:none;transition:border-color .2s}
+.log-reply-inp:focus{border-color:rgba(232,24,90,0.38)}
+.log-reply-inp::placeholder{color:var(--muted)}
+.log-reply-btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;cursor:none;transition:box-shadow .2s}
+.log-reply-btn:hover{box-shadow:0 0 20px var(--glow)}
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --accent:#e8185a;
+  --accent2:#ff3d7f;
+  --accent3:#ffb3c8;
+  --glow:rgba(232,24,90,0.55);
+  --glow2:rgba(255,61,127,0.22);
+  --bg:#07050a;
+  --surface:rgba(255,255,255,0.04);
+  --surface2:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.08);
+  --border2:rgba(232,24,90,0.28);
+  --text:rgba(255,255,255,0.92);
+  --muted:rgba(255,255,255,0.36);
+  --muted2:rgba(255,255,255,0.55);
+}
+html,body{width:100%;height:100%;background:var(--bg);font-family:'Space Grotesk',sans-serif;overflow:hidden;cursor:none}
+
+#cursor{position:fixed;width:6px;height:6px;background:var(--accent2);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:screen;transition:width .15s,height .15s}
+#cursor.big{width:36px;height:36px;background:white;opacity:.55}
+#cursor-ring{position:fixed;width:26px;height:26px;border:1px solid rgba(232,24,90,0.45);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:left .1s ease,top .1s ease,width .2s,height .2s,border-color .2s}
+#cursor-ring.big{width:58px;height:58px;border-color:rgba(255,255,255,0.25)}
+
+canvas#bg-canvas{position:fixed;inset:0;z-index:0}
+canvas#particle-canvas{position:fixed;inset:0;z-index:5;pointer-events:none}
+
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:10;transition:opacity .65s ease,transform .65s ease}
+.screen.out{opacity:0;pointer-events:none;transform:translateY(-14px)}
+
+/* ── LOGIN ── */
+#login{flex-direction:column}
+.l-logo{font-family:'Playfair Display',serif;font-size:54px;font-weight:400;color:#fff;letter-spacing:6px;text-align:center;margin-bottom:4px}
+.l-logo em{color:var(--accent2);font-style:italic}
+.l-sub{color:var(--muted);font-size:10px;letter-spacing:5px;text-transform:uppercase;text-align:center;margin-bottom:44px}
+.l-form{display:flex;flex-direction:column;gap:10px;width:340px}
+.l-inp{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 17px;color:var(--text);font-size:13px;font-family:'Space Grotesk',sans-serif;outline:none;transition:border-color .2s,box-shadow .2s;width:100%}
+.l-inp::placeholder{color:var(--muted)}
+.l-inp:focus{border-color:var(--accent);box-shadow:0 0 20px rgba(232,24,90,0.1)}
+.role-label{font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-top:4px}
+.role-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.role-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 8px;text-align:center;cursor:none;transition:all .2s}
+.role-card.selected{background:rgba(232,24,90,0.1);border-color:var(--accent);color:var(--accent2)}
+.role-card:not(.selected){color:var(--muted2)}
+.role-icon{font-size:18px;margin-bottom:4px}
+.role-name{font-size:11px;letter-spacing:1px;font-weight:500}
+.l-btn{background:linear-gradient(135deg,#a0002a,var(--accent),var(--accent2));color:#fff;border:none;border-radius:12px;padding:14px;font-size:13px;font-weight:600;font-family:'Space Grotesk',sans-serif;cursor:none;letter-spacing:2px;transition:box-shadow .25s,opacity .2s;margin-top:6px}
+.l-btn:hover{box-shadow:0 0 50px var(--glow);opacity:.9}
+.l-or{text-align:center;color:var(--muted);font-size:10px;letter-spacing:2px}
+.l-ghost{background:transparent;border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--muted);font-size:11px;font-family:'Space Grotesk',sans-serif;cursor:none;transition:all .2s;letter-spacing:1px}
+.l-ghost:hover{border-color:rgba(255,255,255,0.2);color:var(--text)}
+
+/* ── GREETING ── */
+#greet-screen{flex-direction:column;background:var(--bg)}
+.greet-hello{font-size:12px;letter-spacing:5px;color:var(--muted);text-transform:uppercase;margin-bottom:16px;opacity:0;animation:fadeUp .6s ease .2s forwards}
+.greet-name{font-family:'Playfair Display',serif;font-size:74px;font-weight:700;color:#fff;line-height:1;opacity:0;animation:fadeUp .7s ease .4s forwards}
+.greet-name em{color:var(--accent2);font-style:italic}
+.greet-role-line{font-size:17px;color:var(--muted2);margin-top:22px;letter-spacing:.5px;opacity:0;animation:fadeUp .6s ease .7s forwards}
+.greet-cta{margin-top:56px;opacity:0;animation:fadeUp .6s ease 1s forwards}
+.greet-enter{background:transparent;border:1px solid rgba(232,24,90,0.4);border-radius:30px;padding:12px 38px;color:var(--accent3);font-size:11px;font-family:'Space Grotesk',sans-serif;letter-spacing:3px;cursor:none;transition:all .3s}
+.greet-enter:hover{background:rgba(232,24,90,0.08);border-color:var(--accent2);box-shadow:0 0 30px var(--glow2)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── MAIN ── */
+#main{flex-direction:column}
+
+/* topbar */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:20px 40px}
+.t-brand{font-family:'Playfair Display',serif;font-size:19px;color:#fff;letter-spacing:4px}
+.t-brand em{color:var(--accent2);font-style:italic}
+
+/* MEET MODE BUTTON — top center prominent */
+.meet-mode-wrap{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:0}
+.meet-pill{display:flex;align-items:center;gap:8px;background:rgba(232,24,90,0.08);border:1px solid rgba(232,24,90,0.3);border-radius:30px;padding:8px 20px;cursor:none;transition:all .3s}
+.meet-pill:hover{background:rgba(232,24,90,0.14);border-color:var(--accent);box-shadow:0 0 24px var(--glow2)}
+.meet-pill-dot{width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 8px var(--accent);animation:blink 1.8s ease-in-out infinite}
+.meet-pill-txt{font-size:11px;letter-spacing:2.5px;color:var(--accent3);text-transform:uppercase;font-weight:500}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.t-right{display:flex;align-items:center;gap:14px}
+.t-user{font-size:10px;color:var(--muted2);letter-spacing:.8px;border-right:1px solid var(--border);padding-right:14px}
+.t-live{display:flex;align-items:center;gap:6px}
+.t-dot{width:5px;height:5px;border-radius:50%;background:#22ff88;box-shadow:0 0 8px #22ff88;animation:blink 2.2s ease-in-out infinite}
+.t-lbl{color:var(--muted);font-size:10px;letter-spacing:2.5px}
+.t-pill{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;color:var(--muted);font-size:10px;cursor:none;transition:all .2s;letter-spacing:1.5px}
+.t-pill:hover{border-color:var(--accent);color:var(--accent3)}
+.t-out{background:none;border:none;color:var(--muted);font-size:10px;cursor:none;letter-spacing:1.5px;transition:color .2s}
+.t-out:hover{color:#fff}
+
+/* hero */
+.hero{position:relative;z-index:10;display:flex;flex-direction:column;align-items:center}
+.hero-tag{font-size:10px;letter-spacing:5px;color:var(--muted);text-transform:uppercase;margin-bottom:58px;text-align:center}
+.hero-tag span{color:var(--accent3)}
+.controls{display:flex;align-items:center;gap:52px}
+
+.side-btn{display:flex;flex-direction:column;align-items:center;gap:10px;cursor:none}
+.side-circle{width:60px;height:60px;border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;transition:all .3s}
+.side-btn:hover .side-circle{border-color:rgba(232,24,90,0.45);background:rgba(232,24,90,0.07);box-shadow:0 0 18px var(--glow2)}
+.side-label{font-size:9px;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;transition:color .2s}
+.side-btn:hover .side-label{color:var(--accent3)}
+
+/* mic */
+.mic-outer{position:relative;display:flex;align-items:center;justify-content:center;width:190px;height:190px}
+.mic-ring{position:absolute;border-radius:50%;border:1px solid rgba(232,24,90,0.18);animation:rpulse 2.6s ease-in-out infinite;pointer-events:none}
+.mic-ring:nth-child(1){width:114px;height:114px}
+.mic-ring:nth-child(2){width:150px;height:150px;animation-delay:.7s;border-color:rgba(232,24,90,0.1)}
+.mic-ring:nth-child(3){width:186px;height:186px;animation-delay:1.4s;border-color:rgba(232,24,90,0.05)}
+@keyframes rpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:.4}}
+.mic-btn{position:relative;z-index:2;width:86px;height:86px;border-radius:50%;background:linear-gradient(145deg,#180810,#0d0308);border:1px solid rgba(232,24,90,0.42);display:flex;align-items:center;justify-content:center;cursor:none;transition:all .4s;box-shadow:0 0 28px rgba(232,24,90,0.12),inset 0 1px 0 rgba(255,255,255,0.05)}
+.mic-btn:hover{border-color:var(--accent2);box-shadow:0 0 70px var(--glow),0 0 140px var(--glow2),inset 0 1px 0 rgba(255,255,255,0.1)}
+.mic-btn.recording{border-color:var(--accent2);box-shadow:0 0 90px var(--glow),0 0 180px var(--glow2);animation:recpulse .9s ease-in-out infinite}
+@keyframes recpulse{0%,100%{box-shadow:0 0 90px var(--glow),0 0 180px var(--glow2)}50%{box-shadow:0 0 40px rgba(232,24,90,0.3)}}
+.mic-lbl{position:absolute;bottom:-28px;font-size:9px;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;white-space:nowrap;transition:color .3s}
+.mic-btn:hover~.mic-lbl,.mic-btn.recording~.mic-lbl{color:var(--accent2)}
+.rec-status{margin-top:52px;height:18px;font-size:10px;color:var(--accent2);letter-spacing:3px;text-transform:uppercase;opacity:0;transition:opacity .3s}
+.rec-status.show{opacity:1}
+
+/* voice transcript live preview */
+.voice-preview{margin-top:14px;min-height:24px;max-width:500px;text-align:center;font-size:13px;color:var(--muted2);font-style:italic;opacity:0;transition:opacity .3s;line-height:1.6}
+.voice-preview.show{opacity:1}
+
+/* ── PANELS ── */
+.overlay{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(7,5,10,0.84);backdrop-filter:blur(18px);opacity:0;pointer-events:none;transition:opacity .38s}
+.overlay.open{opacity:1;pointer-events:all}
+
+/* text/meeting/meet panel */
+.panel-box{background:rgba(12,7,18,0.97);border:1px solid rgba(232,24,90,0.18);border-radius:22px;width:640px;max-width:92vw;padding:32px;position:relative;box-shadow:0 0 80px rgba(232,24,90,0.06)}
+.panel-close{position:absolute;top:20px;right:22px;background:none;border:none;color:var(--muted);cursor:none;font-size:22px;line-height:1;transition:color .2s}
+.panel-close:hover{color:#fff}
+.mode-tabs{display:flex;gap:6px;margin-bottom:22px;background:var(--surface);border-radius:12px;padding:4px}
+.mtab{flex:1;padding:9px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-size:11px;font-family:'Space Grotesk',sans-serif;letter-spacing:2px;cursor:none;transition:all .2s;text-transform:uppercase}
+.mtab.active{background:rgba(232,24,90,0.14);color:var(--accent3);box-shadow:inset 0 0 0 1px rgba(232,24,90,0.3)}
+.chips-wrap{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
+.chip{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;color:var(--muted2);cursor:none;transition:all .22s;letter-spacing:.3px;font-family:'Space Grotesk',sans-serif}
+.chip:hover{border-color:rgba(232,24,90,0.4);color:var(--accent3);background:rgba(232,24,90,0.06)}
+.p-textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px;color:var(--text);font-size:13px;font-family:'Space Grotesk',sans-serif;resize:none;height:100px;outline:none;transition:border-color .2s;line-height:1.65}
+.p-textarea:focus{border-color:rgba(232,24,90,0.38)}
+.p-textarea::placeholder{color:var(--muted)}
+.p-footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+.p-hint{font-size:10px;color:var(--muted);letter-spacing:.8px}
+.p-run{background:linear-gradient(135deg,#a0002a,var(--accent),var(--accent2));color:#fff;border:none;border-radius:10px;padding:11px 26px;font-size:12px;font-weight:600;font-family:'Space Grotesk',sans-serif;cursor:none;letter-spacing:1.5px;transition:box-shadow .2s,opacity .2s}
+.p-run:hover{box-shadow:0 0 30px var(--glow);opacity:.9}
+.p-run:disabled{opacity:.35}
+
+/* meet panel (dedicated) */
+.meet-box{background:rgba(12,7,18,0.97);border:1px solid rgba(232,24,90,0.22);border-radius:22px;width:580px;max-width:92vw;padding:36px;position:relative;box-shadow:0 0 100px rgba(232,24,90,0.08)}
+.meet-title{font-family:'Playfair Display',serif;font-size:24px;color:#fff;letter-spacing:2px;margin-bottom:6px}
+.meet-sub{font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:28px}
+.meet-field{margin-bottom:14px}
+.meet-label{font-size:9px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.meet-inp{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;color:var(--text);font-size:13px;font-family:'Space Grotesk',sans-serif;outline:none;transition:border-color .2s}
+.meet-inp:focus{border-color:rgba(232,24,90,0.38)}
+.meet-inp::placeholder{color:var(--muted)}
+.meet-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.meet-or{text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;margin:10px 0}
+.meet-transcript{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;color:var(--text);font-size:12px;font-family:'Space Grotesk',sans-serif;resize:none;height:90px;outline:none;transition:border-color .2s;line-height:1.6}
+.meet-transcript:focus{border-color:rgba(232,24,90,0.38)}
+.meet-transcript::placeholder{color:var(--muted)}
+.meet-run{width:100%;background:linear-gradient(135deg,#a0002a,var(--accent),var(--accent2));color:#fff;border:none;border-radius:12px;padding:14px;font-size:13px;font-weight:600;font-family:'Space Grotesk',sans-serif;cursor:none;letter-spacing:2px;transition:box-shadow .2s;margin-top:6px}
+.meet-run:hover{box-shadow:0 0 40px var(--glow)}
+
+/* log */
+#log-panel{align-items:flex-end;padding-bottom:36px}
+.log-box{background:rgba(9,5,16,0.98);border:1px solid var(--border);border-radius:22px;width:680px;max-width:92vw;max-height:62vh;overflow:hidden;display:flex;flex-direction:column}
+.log-head{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.log-title{font-family:'Playfair Display',serif;font-size:17px;color:#fff;letter-spacing:2px}
+.log-x{background:none;border:none;color:var(--muted);cursor:none;font-size:18px;transition:color .2s}
+.log-x:hover{color:#fff}
+.log-body{flex:1;overflow-y:auto;padding:14px 22px;display:flex;flex-direction:column;gap:8px}
+.log-body::-webkit-scrollbar{width:3px}
+.log-body::-webkit-scrollbar-thumb{background:rgba(232,24,90,0.3);border-radius:2px}
+.le{padding:11px 14px;border-radius:10px;font-size:12px;line-height:1.65;font-family:'Space Grotesk',sans-serif}
+.le-lbl{font-size:9px;letter-spacing:2px;opacity:.4;text-transform:uppercase;margin-bottom:4px}
+.le-thinking{background:rgba(255,255,255,0.025);border-left:2px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.52);white-space:pre-wrap}
+.le-tool{background:rgba(232,24,90,0.06);border-left:2px solid rgba(232,24,90,0.5);color:rgba(255,179,200,0.85)}
+.le-done{background:rgba(34,255,136,0.04);border-left:2px solid rgba(34,255,136,0.35);color:rgba(34,255,136,0.8);text-align:center}
+.le-error{background:rgba(255,80,80,0.05);border-left:2px solid rgba(255,80,80,0.4);color:rgba(255,160,160,0.8)}
+.le-user{background:rgba(232,24,90,0.08);border:1px solid rgba(232,24,90,0.2);color:var(--accent3);border-radius:10px 10px 3px 10px;text-align:right}
+
+/* memory */
+.mem-box{background:rgba(9,5,16,0.98);border:1px solid var(--border);border-radius:22px;width:720px;max-width:92vw;max-height:74vh;overflow:hidden;display:flex;flex-direction:column}
+.mem-head{padding:22px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.mem-title{font-family:'Playfair Display',serif;font-size:20px;color:#fff;letter-spacing:3px}
+.mem-body{flex:1;overflow-y:auto;padding:18px 28px;display:flex;flex-direction:column;gap:6px}
+.mem-body::-webkit-scrollbar{width:3px}
+.mem-body::-webkit-scrollbar-thumb{background:rgba(232,24,90,0.3);border-radius:2px}
+.mem-row{display:grid;grid-template-columns:80px 140px 1fr;gap:14px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;align-items:center}
+.mem-time{color:var(--muted)}
+.mem-tool{color:var(--accent3);font-weight:500}
+.mem-out{color:rgba(255,255,255,0.52);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mem-empty{color:var(--muted);font-size:13px;text-align:center;padding:50px 0;font-family:'Playfair Display',serif;font-style:italic}
+</style>
+</head>
+<body>
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<canvas id="bg-canvas"></canvas>
+<canvas id="particle-canvas"></canvas>
+
+<!-- LOGIN -->
+<div class="screen" id="login">
+  <div style="display:flex;flex-direction:column;align-items:center;z-index:2">
+    <div class="l-logo">Flow<em>trace</em></div>
+    <div class="l-sub">intelligent office automation</div>
+    <div class="l-form">
+      <input class="l-inp" id="l-name" placeholder="Your name">
+      <input class="l-inp" id="l-email" type="email" placeholder="Email (optional)">
+      <div class="role-label">I work in</div>
+      <div class="role-row" id="role-row">
+        <div class="role-card selected" onclick="selectRole(this,'sales')"><div class="role-icon">💼</div><div class="role-name">SALES</div></div>
+        <div class="role-card" onclick="selectRole(this,'marketing')"><div class="role-icon">📣</div><div class="role-name">MARKETING</div></div>
+        <div class="role-card" onclick="selectRole(this,'tech')"><div class="role-icon">⚡</div><div class="role-name">TECH</div></div>
+      </div>
+      <button class="l-btn" onclick="doLogin()">ENTER WORKSPACE →</button>
+      <div class="l-or">or</div>
+      <button class="l-ghost" onclick="doGuest()">Continue as guest</button>
+    </div>
+  </div>
+</div>
+
+<!-- GREETING -->
+<div class="screen out" id="greet-screen">
+  <div style="text-align:center;z-index:2">
+    <div class="greet-hello">Welcome back</div>
+    <div class="greet-name">Hello, <em id="greet-name-text">there</em></div>
+    <div class="greet-role-line" id="greet-role-line">Ready to close deals today?</div>
+    <div class="greet-cta"><button class="greet-enter" onclick="enterMain()">ENTER WORKSPACE →</button></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="screen out" id="main">
+  <div class="topbar">
+    <div class="t-brand">Flow<em>trace</em></div>
+
+    <!-- MEET MODE — top centre -->
+    <div class="meet-mode-wrap">
+      <div class="meet-pill" onclick="openMeetPanel()">
+        <div class="meet-pill-dot"></div>
+        <div class="meet-pill-txt">Schedule a Meet</div>
+      </div>
+    </div>
+
+    <div class="t-right">
+      <div class="t-user" id="t-user">Guest</div>
+      <div class="t-live"><div class="t-dot"></div><div class="t-lbl">LIVE</div></div>
+      <button class="t-pill" onclick="openMemory()">MEMORY VAULT</button>
+      <button class="t-out" onclick="doLogout()">SIGN OUT</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-tag" id="hero-tag">SPEAK OR TYPE — <span>ACTIONS HAPPEN</span></div>
+    <div class="controls">
+
+      <div class="side-btn" onclick="openTextPanel()">
+        <div class="side-circle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <div class="side-label">Type</div>
+      </div>
+
+      <div class="mic-outer">
+        <div class="mic-ring"></div><div class="mic-ring"></div><div class="mic-ring"></div>
+        <button class="mic-btn" id="mic-btn" onclick="toggleRecord()">
+          <svg id="mic-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        <div class="mic-lbl" id="mic-lbl">PRESS TO SPEAK</div>
+      </div>
+
+      <div class="side-btn" onclick="openLogPanel()">
+        <div class="side-circle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <div class="side-label">Activity</div>
+      </div>
+    </div>
+
+    <div class="rec-status" id="rec-status">● RECORDING — SPEAK NOW</div>
+    <div class="voice-preview" id="voice-preview"></div>
+  </div>
+</div>
+
+<!-- TEXT PANEL -->
+<div class="overlay" id="text-panel">
+  <div class="panel-box">
+    <button class="panel-close" onclick="closeTextPanel()">×</button>
+    <div class="mode-tabs">
+      <button class="mtab active" id="tab-task" onclick="setMode('task')">TASK</button>
+      <button class="mtab" id="tab-meeting" onclick="setMode('meeting')">MEETING</button>
+    </div>
+    <div class="chips-wrap" id="chips"></div>
+    <textarea class="p-textarea" id="p-prompt" placeholder="Type your task in plain English..."></textarea>
+    <div class="p-footer">
+      <div class="p-hint" id="p-hint">Enter to run · Esc to close</div>
+      <button class="p-run" id="p-run" onclick="runFromPanel()">RUN →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MEET PANEL -->
+<div class="overlay" id="meet-panel">
+  <div class="meet-box">
+    <button class="panel-close" onclick="closeMeetPanel()">×</button>
+    <div class="meet-title">Schedule a Meet</div>
+    <div class="meet-sub">FILL IN DETAILS OR PASTE A TRANSCRIPT</div>
+
+    <div class="meet-field">
+      <div class="meet-label">Meeting title</div>
+      <input class="meet-inp" id="meet-title" placeholder="e.g. Acme Corp follow-up call">
+    </div>
+    <div class="meet-row">
+      <div class="meet-field">
+        <div class="meet-label">Attendee email</div>
+        <input class="meet-inp" id="meet-email" placeholder="john@acme.com">
+      </div>
+      <div class="meet-field">
+        <div class="meet-label">Date</div>
+        <input class="meet-inp" id="meet-date" type="date">
+      </div>
+    </div>
+    <div class="meet-row">
+      <div class="meet-field">
+        <div class="meet-label">Time</div>
+        <input class="meet-inp" id="meet-time" type="time" value="10:00">
+      </div>
+      <div class="meet-field">
+        <div class="meet-label">Also notify Slack channel</div>
+        <input class="meet-inp" id="meet-slack" placeholder="sales (optional)">
+      </div>
+    </div>
+
+    <div class="meet-or">— or paste a meeting transcript —</div>
+    <textarea class="meet-transcript" id="meet-transcript" placeholder="Paste transcript here and I'll extract + schedule all meetings mentioned..."></textarea>
+
+    <button class="meet-run" onclick="runMeet()">SCHEDULE MEETING →</button>
+  </div>
+</div>
+
+<!-- LOG PANEL -->
+<!-- LOG PANEL -->
+<div class="overlay" id="log-panel" style="align-items:flex-end;padding-bottom:36px">
+  <div class="log-box">
+    <div class="log-head"><div class="log-title">Activity Stream</div><button class="log-x" onclick="closeLogPanel()">×</button></div>
+    <div class="log-body" id="log-body"></div>
+    <div class="log-reply">
+      <input class="log-reply-inp" id="log-reply-inp" placeholder="Reply or follow up..." autocomplete="off">
+      <button class="log-reply-btn" onclick="sendReply()">→</button>
+    </div>
+  </div>
+</div>
+
+<!-- MEMORY PANEL -->
+<div class="overlay" id="memory-panel">
+  <div class="mem-box">
+    <div class="mem-head"><div class="mem-title">Team Memory</div><button class="log-x" onclick="closeMemory()">×</button></div>
+    <div class="mem-body" id="mem-body"><div class="mem-empty">Loading...</div></div>
+  </div>
+</div>
+
+<script>
+const API="https://flowtrace-production-0690.up.railway.app";
+let userName="",userRole="sales",currentMode="task";
+
+// ── CURSOR ───────────────────────────────────────────────────────────────────
+const cur=document.getElementById('cursor'),ring=document.getElementById('cursor-ring');
+let mx=0,my=0;
+document.addEventListener('mousemove',e=>{
+  mx=e.clientX;my=e.clientY;
+  cur.style.left=mx+'px';cur.style.top=my+'px';
+  setTimeout(()=>{ring.style.left=mx+'px';ring.style.top=my+'px'},70);
+  spawnP(mx,my);
+});
+document.getElementById('mic-btn').addEventListener('mouseenter',()=>{cur.classList.add('big');ring.classList.add('big');suckParticles()});
+document.getElementById('mic-btn').addEventListener('mouseleave',()=>{cur.classList.remove('big');ring.classList.remove('big')});
+
+// ── BG WAVE (RED) ────────────────────────────────────────────────────────────
+const bc=document.getElementById('bg-canvas'),bx=bc.getContext('2d');
+let W,H,wt=0;
+function rsz(){W=bc.width=window.innerWidth;H=bc.height=window.innerHeight}
+rsz();window.addEventListener('resize',rsz);
+function drawBg(){
+  bx.fillStyle='#07050a';bx.fillRect(0,0,W,H);
+  const waves=[
+    {a:22,f:0.0075,s:0.018,col:'232,24,90',al:.58,lw:1.6},
+    {a:30,f:0.006,s:0.014,col:'255,61,127',al:.38,lw:1.2},
+    {a:16,f:0.01,s:0.022,col:'200,18,70',al:.25,lw:.9},
+    {a:38,f:0.005,s:0.01,col:'255,100,150',al:.14,lw:.7},
+    {a:12,f:0.013,s:0.026,col:'255,180,200',al:.08,lw:.5},
+  ];
+  waves.forEach((w,i)=>{
+    bx.beginPath();
+    const yo=H/2+i*9-18;
+    for(let x=0;x<=W;x+=2){
+      const y=yo+w.a*Math.sin(x*w.f+wt*w.s+i*1.1)+w.a*.38*Math.sin(x*w.f*2.1-wt*(w.s*1.35)+i);
+      x===0?bx.moveTo(x,y):bx.lineTo(x,y);
+    }
+    bx.strokeStyle=`rgba(${w.col},${w.al})`;bx.lineWidth=w.lw;bx.stroke();
+  });
+  const g=bx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*.4);
+  g.addColorStop(0,'rgba(232,24,90,0.04)');g.addColorStop(1,'rgba(0,0,0,0)');
+  bx.fillStyle=g;bx.fillRect(0,0,W,H);
+  wt++;requestAnimationFrame(drawBg);
+}
+drawBg();
+
+// ── PARTICLES ────────────────────────────────────────────────────────────────
+const pc=document.getElementById('particle-canvas'),px=pc.getContext('2d');
+let parts=[];
+function rszP(){pc.width=window.innerWidth;pc.height=window.innerHeight}
+rszP();window.addEventListener('resize',rszP);
+function spawnP(x,y){
+  if(Math.random()>.28)return;
+  const c=Math.random()>.55?'232,24,90':'255,200,220';
+  parts.push({x,y,vx:(Math.random()-.5)*1.5,vy:(Math.random()-.5)*1.5-.5,life:1,sz:Math.random()*2.2+.7,col:c});
+}
+let suck=false;
+function suckParticles(){suck=true;setTimeout(()=>suck=false,700)}
+function animP(){
+  px.clearRect(0,0,pc.width,pc.height);
+  const mb=document.getElementById('mic-btn').getBoundingClientRect();
+  const mcx=mb.left+mb.width/2,mcy=mb.top+mb.height/2;
+  parts=parts.filter(p=>{
+    if(suck){const dx=mcx-p.x,dy=mcy-p.y,d=Math.sqrt(dx*dx+dy*dy);p.vx+=dx/d*2.8;p.vy+=dy/d*2.8;if(d<16)return false}
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.025;p.life-=.02;
+    if(p.life<=0)return false;
+    px.beginPath();px.arc(p.x,p.y,p.sz,0,Math.PI*2);
+    px.fillStyle=`rgba(${p.col},${p.life*.82})`;px.fill();
+    return true;
+  });
+  requestAnimationFrame(animP);
+}
+animP();
+
+// ── ROLE ──────────────────────────────────────────────────────────────────────
+function selectRole(el,role){
+  document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');userRole=role;
+}
+const roleLines={sales:"Ready to close deals today?",marketing:"Let's launch something great.",tech:"Ship fast. Break nothing."};
+const roleTags={sales:"FIND LEADS · CLOSE DEALS · GROW PIPELINE",marketing:"CAMPAIGNS · CONTENT · RESULTS",tech:"BUILD · DEPLOY · MONITOR"};
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+function doLogin(){
+  userName=document.getElementById('l-name').value.trim()||'there';
+  showGreeting();
+}
+function doGuest(){userName='Guest';showGreeting()}
+function showGreeting(){
+  document.getElementById('login').classList.add('out');
+  document.getElementById('greet-name-text').textContent=userName;
+  document.getElementById('greet-role-line').textContent=roleLines[userRole]||roleLines.sales;
+  setTimeout(()=>document.getElementById('greet-screen').classList.remove('out'),350);
+}
+function enterMain(){
+  document.getElementById('greet-screen').classList.add('out');
+  document.getElementById('t-user').textContent=`${userName} · ${userRole.charAt(0).toUpperCase()+userRole.slice(1)}`;
+  document.getElementById('hero-tag').innerHTML=`SPEAK OR TYPE — <span>${roleTags[userRole]||roleTags.sales}</span>`;
+  setTimeout(()=>document.getElementById('main').classList.remove('out'),350);
+}
+function doLogout(){
+  document.getElementById('main').classList.add('out');
+  setTimeout(()=>document.getElementById('login').classList.remove('out'),350);
+}
+document.getElementById('l-name').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+
+// ── CHIPS ─────────────────────────────────────────────────────────────────────
+const allChips={
+  task:["Find unread leads in Gmail → full pipeline","Add contact to HubSpot + log in Sheets","Notify #sales on Slack about new leads","Schedule follow-up meeting in Calendar","Create Notion task for client follow-up"],
+  meeting:["Execute all action items from this transcript","Create Notion tasks from meeting notes","Schedule all meetings mentioned in transcript","Send meeting summary to #sales on Slack","Update CRM from what was discussed"]
+};
+function renderChips(){
+  document.getElementById('chips').innerHTML=allChips[currentMode].map(c=>`<div class="chip" onclick="useChip(this)">${c}</div>`).join('');
+  const ta=document.getElementById('p-prompt');
+  ta.placeholder=currentMode==='task'?'Type your task in plain English...':'Paste your meeting transcript here...';
+  ta.style.height=currentMode==='meeting'?'160px':'100px';
+  document.getElementById('p-hint').textContent=currentMode==='task'?'Runs across Gmail, HubSpot, Sheets, Notion, Slack':'AI extracts and executes every action item';
+}
+function useChip(el){document.getElementById('p-prompt').value=el.textContent}
+function setMode(m){
+  currentMode=m;
+  document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+m).classList.add('active');
+  renderChips();
+}
+renderChips();
+
+// ── TEXT PANEL ────────────────────────────────────────────────────────────────
+function openTextPanel(){document.getElementById('text-panel').classList.add('open');setTimeout(()=>document.getElementById('p-prompt').focus(),200)}
+function closeTextPanel(){document.getElementById('text-panel').classList.remove('open')}
+document.getElementById('text-panel').addEventListener('click',e=>{if(e.target===document.getElementById('text-panel'))closeTextPanel()});
+document.getElementById('p-prompt').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();runFromPanel()}
+  if(e.key==='Escape')closeTextPanel();
+});
+async function runFromPanel(){
+  const prompt=document.getElementById('p-prompt').value.trim();
+  if(!prompt)return;
+  document.getElementById('p-run').disabled=true;
+  closeTextPanel();openLogPanel();addLog('user',null,prompt);
+  await runPrompt(prompt);
+  document.getElementById('p-run').disabled=false;
+}
+
+// ── MEET PANEL ────────────────────────────────────────────────────────────────
+function openMeetPanel(){
+  // set today as default date
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('meet-date').value=today;
+  document.getElementById('meet-panel').classList.add('open');
+}
+function closeMeetPanel(){document.getElementById('meet-panel').classList.remove('open')}
+document.getElementById('meet-panel').addEventListener('click',e=>{if(e.target===document.getElementById('meet-panel'))closeMeetPanel()});
+
+async function runMeet(){
+  const transcript=document.getElementById('meet-transcript').value.trim();
+  const title=document.getElementById('meet-title').value.trim();
+  const email=document.getElementById('meet-email').value.trim();
+  const date=document.getElementById('meet-date').value;
+  const time=document.getElementById('meet-time').value;
+  const slack=document.getElementById('meet-slack').value.trim();
+
+  let prompt='';
+  if(transcript){
+    prompt=`Extract all meetings and action items from this transcript and schedule them in Google Calendar, create Notion tasks, and notify the team on Slack:\n\n${transcript}`;
+  } else if(title&&email&&date){
+    prompt=`Schedule a meeting called "${title}" with ${email} on ${date} at ${time}.${slack?` Then notify #${slack} on Slack about this meeting.`:''}`;
+  } else {
+    alert('Please fill in the meeting details or paste a transcript.');return;
+  }
+  closeMeetPanel();openLogPanel();addLog('user',null,'📅 '+prompt.slice(0,80)+'...');
+  await runPrompt(prompt);
+}
+
+// ── LOG ───────────────────────────────────────────────────────────────────────
+function openLogPanel(){document.getElementById('log-panel').classList.add('open')}
+function closeLogPanel(){document.getElementById('log-panel').classList.remove('open')}
+async function sendReply(){
+  const inp=document.getElementById('log-reply-inp');
+  const text=inp.value.trim();
+  if(!text)return;
+  inp.value='';
+  addLog('user',null,text);
+  await runPrompt(text);
+}
+document.getElementById('log-reply-inp').addEventListener('keydown',e=>{
+  if(e.key==='Enter')sendReply();
+  e.stopPropagation();
+});
+document.getElementById('log-panel').addEventListener('click',e=>{if(e.target===document.getElementById('log-panel'))closeLogPanel()});
+function addLog(type,label,text){
+  const body=document.getElementById('log-body');
+  const wrap=document.createElement('div');
+  if(label){const l=document.createElement('div');l.className='le-lbl';l.textContent=label;wrap.appendChild(l)}
+  const d=document.createElement('div');d.className='le le-'+type;d.textContent=text;
+  wrap.appendChild(d);body.appendChild(wrap);d.scrollIntoView({behavior:'smooth'});
+  return d;
+}
+
+// ── RUN ───────────────────────────────────────────────────────────────────────
+async function runPrompt(prompt){
+  let tDiv=null;
+  try{
+    const res=await fetch(`${API}/run`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})});
+    const reader=res.body.getReader();const dec=new TextDecoder();
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      const lines=dec.decode(value).split('\n');
+      for(const line of lines){
+        if(!line.startsWith('data: '))continue;
+        const d=JSON.parse(line.slice(6));
+        if(d.type==='thinking'){if(!tDiv)tDiv=addLog('thinking','agent','');tDiv.textContent+=d.text+'\n';tDiv.scrollIntoView({behavior:'smooth'})}
+        else if(d.type==='tool_result'){tDiv=null;addLog('tool','tool result',d.text)}
+        else if(d.type==='done'){addLog('done',null,'✓ Complete')}
+        else if(d.type==='error'){addLog('error','error',d.text)}
+      }
+    }
+  }catch(e){addLog('error','error','Cannot reach backend: '+e.message)}
+}
+
+// ── VOICE — improved continuous recording ─────────────────────────────────────
+// Key fixes:
+// 1. continuous=true so it doesn't cut off mid-sentence
+// 2. interimResults=true to show live preview
+// 3. Keeps collecting until user manually stops
+// 4. Email correction pass using simple regex patterns
+let isRec=false,recog=null,finalTranscript='';
+const micBtn=document.getElementById('mic-btn');
+const micLbl=document.getElementById('mic-lbl');
+const recSt=document.getElementById('rec-status');
+const voicePreview=document.getElementById('voice-preview');
+
+function fixTranscript(text){
+  // Fix common speech-to-text errors for business context
+  return text
+    .replace(/\bat\b\s+([a-zA-Z])/g,'@$1')   // "john at gmail" → "john@gmail"
+    .replace(/\bdot com\b/gi,'.com')
+    .replace(/\bdot in\b/gi,'.in')
+    .replace(/\bdot org\b/gi,'.org')
+    .replace(/\bdot net\b/gi,'.net')
+    .replace(/\bslack\s+channel\b/gi,'Slack channel')
+    .replace(/\bhub\s*spot\b/gi,'HubSpot')
+    .replace(/\bnotion\b/gi,'Notion')
+    .replace(/\bgmail\b/gi,'Gmail');
+}
+
+function toggleRecord(){
+  if(!isRec){
+    if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+      alert('Voice input requires Chrome browser.');return;
+    }
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    recog=new SR();
+    recog.lang='en-IN';
+    recog.continuous=true;        // keeps listening, doesn't cut off
+    recog.interimResults=true;    // shows live preview as you speak
+    recog.maxAlternatives=3;      // gets multiple alternatives, picks best
+
+    finalTranscript='';
+
+    recog.onresult=e=>{
+      let interim='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal){
+          finalTranscript+=e.results[i][0].transcript+' ';
+        }else{
+          interim+=e.results[i][0].transcript;
+        }
+      }
+      // Show live preview
+      const display=fixTranscript((finalTranscript+interim).trim());
+      if(display){
+        voicePreview.textContent=display;
+        voicePreview.classList.add('show');
+      }
+    };
+
+    recog.onerror=e=>{
+      // network error = just restart silently
+      if(e.error==='network'&&isRec){recog.start();return}
+      stopRec(false);
+    };
+
+    recog.onend=()=>{
+      // auto-restart if still in recording mode (handles browser timeout)
+      if(isRec)recog.start();
+    };
+
+    recog.start();
+    isRec=true;
+    micBtn.classList.add('recording');
+    micLbl.textContent='TAP TO STOP';
+    recSt.classList.add('show');
+    voicePreview.textContent='';
+    voicePreview.classList.add('show');
+  }else{
+    stopRec(true);
+  }
+}
+
+async function stopRec(execute){
+  isRec=false;
+  if(recog){recog.onend=null;recog.stop()}
+  micBtn.classList.remove('recording');
+  micLbl.textContent='PRESS TO SPEAK';
+  recSt.classList.remove('show');
+
+  if(execute&&finalTranscript.trim()){
+    const clean=fixTranscript(finalTranscript.trim());
+    voicePreview.textContent=clean;
+    setTimeout(()=>{voicePreview.classList.remove('show');voicePreview.textContent=''},3000);
+    openLogPanel();
+    addLog('user',null,'🎙 '+clean);
+    await runPrompt(clean);
+  }else{
+    setTimeout(()=>{voicePreview.classList.remove('show');voicePreview.textContent=''},1500);
+  }
+}
+
+// ── MEMORY ────────────────────────────────────────────────────────────────────
+async function openMemory(){
+  document.getElementById('memory-panel').classList.add('open');
+  const body=document.getElementById('mem-body');
+  body.innerHTML='<div class="mem-empty">Loading memory...</div>';
+  try{
+    const res=await fetch(`${API}/memory`);const data=await res.json();
+    if(!data.length){body.innerHTML='<div class="mem-empty">No actions recorded yet</div>';return}
+    body.innerHTML=data.map(r=>`<div class="mem-row"><div class="mem-time">${r.timestamp.slice(11,16)}</div><div class="mem-tool">${r.tool}</div><div class="mem-out">${r.output}</div></div>`).join('');
+  }catch(e){body.innerHTML='<div class="mem-empty">Could not load memory</div>'}
+}
+function closeMemory(){document.getElementById('memory-panel').classList.remove('open')}
+document.getElementById('memory-panel').addEventListener('click',e=>{if(e.target===document.getElementById('memory-panel'))closeMemory()});
+</script>
+</body>
+</html>

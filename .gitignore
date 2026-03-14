@@ -1,0 +1,16 @@
+# secrets — never push these
+backend/.env
+backend/token.json
+backend/service_account.json
+backend/credentials.json
+backend/flowtrace_memory.db
+
+# python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# system
+.DS_Store
+Thumbs.db
