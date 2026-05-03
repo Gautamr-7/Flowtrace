@@ -14,3 +14,4 @@ __pycache__/
 # system
 .DS_Store
 Thumbs.db
+.env
