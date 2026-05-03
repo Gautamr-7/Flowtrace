@@ -12,7 +12,7 @@ load_dotenv()
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
 def make_llm():
     return ChatGroq(
-        model_name="llama3-8b-8192",
+        model="llama3-8b-8192",
         groq_api_key=os.getenv("GROQ_API_KEY"),
         temperature=0.1,
     )
