@@ -2,20 +2,19 @@ import sys, os, json, sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_exponential
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import tool
 
 load_dotenv()
 
-# ── Gemini with retry (fixes 503 overload) ──────────────────────────────────
+# ── Groq with retry (fixes transient overloads) ─────────────────────────────
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
 def make_llm():
-    return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        google_api_key=os.getenv("GOOGLE_API_KEY"),
+    return ChatGroq(
+        model="llama3-8b-8192",
+        groq_api_key=os.getenv("GROQ_API_KEY"),
         temperature=0.1,
-        convert_system_message_to_human=True,
     )
 
 llm = make_llm()
