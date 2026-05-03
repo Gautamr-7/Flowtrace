@@ -1,4 +1,6 @@
 # secrets — never push these
+.env
+frontend/.env
 backend/.env
 backend/token.json
 backend/service_account.json
